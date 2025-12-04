@@ -1,38 +1,60 @@
 from typing import Dict, List
+import uuid
+from datetime import datetime as dt
+from dateutil.relativedelta import relativedelta
 
 class LibraryItem:
-    def __init__(self, title: str):
-        self.title = title
+    def __init__(self, GUID: str, title: str, description: str, amount: int, genre: str, publication_year: int, language: str, borrowed_by: str, borrowed_date: dt, location: str):
+        self.GUID = None                            # Unik identifikator i biblioteket for å holde styr på duplikater, None ved initialisering
+        self.title = title                          # Tittel på bok eller film
+        self.description = description              # Beskrivelse på bok eller film
+        self.amount = amount                        # Antall - Lagt til for fremtidig utvidelse av funksjon for å vise om en har flere av samme
+        self.genre = genre                          # Sjanger på bok/film
+        self.publication_year = publication_year    # Publiseringsår
+        self.language = language
+        self.borrowed_by = None                     # Utlånt av - Lagt til for fremtidig utvidelse av funksjonalitet.
+        self.borrowed_date = None                   # Utlånsdato
+        self.due_date = None                        # Dato for innleveringsfrist. Settes en måned frem i tid.
+        self.location = location
         
-        # Bestem dato for når den skal leveres tilbake
-        # Nå + en måned senere?
-        self.due_date = None
-        
-    def is_borrowed(self) -> bool:
-        #TODO: Sjekk om gjenstanden er utlånt
-        pass
+    def is_borrowed(self):           # Returnerer false om boken ikke er lånt. Hvis den er lånt ut, returner dato for innlevering
+        if self.due_date is None:
+            return False
+        else:
+            return self.due_date
     
     def borrow_item(self) -> None:
-        #TODO: Merk gjenstanden som utlånt
-        pass
-        
+        if self.due_date is None:
+            todays_date = dt(year=dt.now().year, month=dt.now().month,day=dt.now().day)
+            print(todays_date)
+            self.due_date = todays_date + relativedelta(months=1, days=1) # Dagens dato klokken 00:00 pluss en dag = en måned frem i tid. Boken må være inne innen stengetid dagen før
+        else:
+            print("Denne er allerede lånt ut") 
+            #TODO Mulighet for å legge inn noe error handling i stedet for en string? Hvordan blir implementasjonen senere?
+            return #Returnere noe annet enn None?
+
     def return_item(self) -> None:
-        #TODO: Merk gjenstanden som returnert
-        pass
+        if self.due_date is None:
+            print("Denne var ikke lånt ut, sikker på at dette er den som skal returneres?")
+            #TODO Mulighet for å legge inn noe error handling i stedet for en string? Hvordan blir implementasjonen senere?
+        else:
+            self.due_date = None
+            return
         
 class Book(LibraryItem):
-    def __init__(self, title: str, author: str, isbn: str):
+    def __init__(self, title: str, author: str, isbn: str, pages: int):
         super().__init__(title)
-        self.author = author
-        self.isbn = isbn
-        
+        self.author = author        # Forfatter av boken
+        self.isbn = isbn            # ISBN referanse
+        self.pages = pages          # Antall sider i boken
 class Movie(LibraryItem):
-    def __init__(self, title: str, director: str, id: str):
+    def __init__(self, title: str, director: str, id: str, length:str, IMDB_rating:float, subtitles:str):
         super().__init__(title)
-        self.director = director
-        self.id = id
-        # f.eks. IMDB ID
-        
+        self.director = director    # Direktør
+        self.id = id                # IMDB ID referanse
+        self.length = length
+        self.IMDB_rating = IMDB_rating
+        self.subtitles = subtitles
         
 class Library:
     def __init__(self):
@@ -42,12 +64,28 @@ class Library:
         #TODO: Legg til gjenstanden i biblioteket. Hva skjer hvis det finnes en duplikat?
         pass
     
-    def remove_item(self, title) -> None:
+    def remove_item(self, GUID) -> None:
+        # 
         #TODO: Fjern gjenstanden fra biblioteket
         pass
     
     #TODO: Lag to nye metoder for å finne lister med tilgjengelige bøker og filmer.
     
+    """
+    # list comprehensions
+    electronics = [p for p in Produkter if isinstance(p, Electronics)]
+    clothing = [p for p in Produkter if isinstance(p, Clothing)]
+
+    #print all elektronikk:
+    print("printer alle elektronikk produkter:")
+    for produkt in electronics:
+        print(produkt.get_info())
+
+    #print all clothing:
+    print("\nPrint alle klær produkter:")
+    for clothes in clothing:
+        print(clothes.get_info())
+    """
     
 def add_book(library):
     #TODO: Implementer funksjonen for å legge til en bok.
@@ -78,6 +116,12 @@ def find_item(library):
 def main():
     #Lag et bibliotek
     library = Library()
+    """
+    Produkter = []
+    Produkter.append(Electronics("Datamaskin","ZBook G14 Fury",15000,10,12))
+    Produkter.append(Electronics("Hodetelefoner","Senheiser xx",2000,5,12))
+    Produkter.append(Clothing("Genser","Marius genser",600,100,"M"))
+    """
     
     exit_requested = False
     

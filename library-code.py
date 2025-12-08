@@ -13,9 +13,10 @@ class LibraryItem:
         self.genre = genre                          # Sjanger på bok/film
         self.publication_year = publication_year    # Publiseringsår
         self.language = language
-        self.borrowed_by = None                     # Utlånt av - Lagt til for fremtidig utvidelse av funksjonalitet.
-        self.borrowed_date = None                   # Utlånsdato
-        self.due_date = None                        # Dato for innleveringsfrist. Settes en måned frem i tid.
+        # Borrowed_by, byrrowed_date og due_date burde være en dictionary av alt. Implementert sånn nå for å spare tid. Listene kan være ute av sync, som vil være ett problem
+        self.borrowed_by = None #List[str]                 # Utlånt av - Liste av forskjellige lånetagere.
+        self.borrowed_date = None #List[str]               # Utlånsdato -
+        self.due_date = None # List[str]                    # Dato for innleveringsfrist. Settes en måned frem i tid.
         self.location = location
         
     def is_borrowed(self):           # Returnerer false om boken ikke er lånt. Hvis den er lånt ut, returner dato for innlevering
@@ -80,7 +81,7 @@ class Library:
     
     def find_books(self,borrowed_status):
         if borrowed_status is True: # List opp kun bøker som er tilgjengelig for utlån
-            books = [b for b in self.items.values() if (isinstance(b,Book)) & (b.due_date == None)] # Hent alle bøker i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
+            books = [b for b in self.items.values() if (isinstance(b,Book)) & (b.due_date is None)] # Hent alle bøker i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         else:
             books = [b for b in self.items.values() if (isinstance(b,Book))] # Hent alle bøker i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         
@@ -94,7 +95,7 @@ class Library:
 
     def find_movies(self,borrowed_status):
         if borrowed_status is True: # List opp kun filmer som er tilgjengelig for utlån
-            movies = [m for m in self.items.values() if (isinstance(m,Movie)) & (m.due_date == None)] # Hent alle filmer i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
+            movies = [m for m in self.items.values() if (isinstance(m,Movie)) & (m.due_date is None)] # Hent alle filmer i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         else:
             movies = [m for m in self.items.values() if (isinstance(m,Movie))] # Hent alle filmer i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         
@@ -143,6 +144,115 @@ class Library:
             #print(f"{i}. {o}:>5 {self.items[o].due_date}")
         print_library_info(objects_list)
         return objects_found
+
+class User:
+    def __init__(self, libraryID: int, first_name: str, last_name: str, fullname: str, email: str):
+        self.libraryID = libraryID                    # Lånekort nr.
+        self.first_name = first_name                    # Fornavn
+        self.last_name = last_name                      # Etternavn
+        self.fullname = fullname    # Brukers fulle navn
+        self.email = email                              # Epostadresse for kontaktinfo - Implementere påminnelse på innlevering på sikt.
+class UsersDatabase:
+    def __init__(self):
+        self.users: Dict[str, User] = {}
+    
+    def add_user(self, user) -> None:
+        if user.fullname in self.users.values(): # Let etter brukeren i eksisterende database
+            print(f"Bruker er allerede i brukerdatabasen: {user.fullname}")
+        else:
+            self.users[user.fullname] = user
+            print_users_info(self.users.values())
+        return
+    
+    def remove_user(self, user) -> None:
+        if user.fullname in self.users.keys(): # Let etter brukeren i eksisterende database
+            print(f"Bruker {user.fullname} er funnet, er du sikker på at du vil slette?")
+            choice = input("Skriv 'Ja' for å slette, alt annet for å angre: ")
+            if choice == "Ja":
+                self.users.pop(user.fullname) # Fjern item_key fra biblioteket
+                print(f"Bruker {user.fullname} ble slettet fra databasen")
+            else:
+                print("Sletting av bruker er avbrutt")
+        else:
+            print(f"Kan ikke finne {user.fullname} i brukerdatabasen")
+        return
+    
+    def list_users(self):
+        print_users_info(self.users.values())
+        return self.users.values()
+    
+def print_users_info(user_list):
+    if len(user_list) == 0:
+        print("\nBrukerdatabasen er tom\n")
+        return
+    t = Texttable()
+    t.header(['Index','Bruker', 'Bibliotekskort', 'Epost'])
+    index = 0
+    for user in user_list:
+        index += 1
+        t.add_row([index, user.fullname,user.libraryID, user.email])
+    print(t.draw())
+    print()
+    return 
+
+def create_libraryID(usersDatabase):
+    users = usersDatabase.list_users()       # Hent alle brukere
+    
+    new_libraryID = 0
+        
+    if len(users) == 0:                             # Hvis database er tom bruk ID 1
+        new_libraryID = 1       
+    else:                      
+        """
+        Her ville jeg egentlig bruke en måte å sjekke høyeste verdi av dict_values, men fant ikke helt ut av det.
+        """                     
+        for user in users:     # Loop igjennom og finn høyeste library ID i databasen.
+            if user.libraryID > new_libraryID:
+                new_libraryID = user.libraryID + 1
+    return new_libraryID
+
+def add_user(usersDatabase):
+
+    libraryID = create_libraryID(usersDatabase)     # Generer en ny ID til bruker Satt til -999 midlertidig
+    first_name = input("Skriv inn fornavn: ")
+    last_name = input("Skriv inn etternavn: ")
+    email = input("Skriv inn epost: ")
+    fullname = first_name + " " + last_name
+    usersDatabase.add_user(User(libraryID, first_name, last_name, fullname, email))
+    #print_users_info(usersDatabase.list_libraryID)
+
+def delete_user(usersDatabase):
+    users = usersDatabase.list_users()  # Gir oss alle brukerene og printer det
+    users_list = []
+    for user in users:
+        users_list.append(user)         # Gjør dict_values type til en liste
+
+    exit_requested = False
+    choice = -99
+
+    while not exit_requested and choice not in range(0,len(users)):
+        choice = input("Velg en brukers index å slette: ")
+        match choice:
+            case "":
+                print("Går tilbake til hovedmeny")
+                exit_requested=True
+                return
+            case _:
+                try:
+                    choice = int(choice)-1 # Sett valg til en integer og trekk ifra 1 pga index starter på 1 og listen starter på 0
+                except ValueError as e:
+                    print(f"[Value Error] {e}")
+                    print("Velg ett indeksnummer, ikke tekst.")
+                    continue
+                if choice not in range(0,len(users)):
+                    print("Valget er ikke ett gyldig valg, prøv igjen..")
+                    continue
+                try:
+                    userToDelete = users_list[choice]
+                    usersDatabase.remove_user(userToDelete)
+                    return
+                except IndexError as e:
+                    print(f"[Index Error] {e}")
 
 def print_library_info(library_list):
 
@@ -352,36 +462,38 @@ def find_item(library):
                 library.search_for(search_for)
 
 
-def save_library(library):    
+def save_databases(library, userDatabase):    
     """
     Hentet funksjonalitet fra stackoverflow.
     Enkel lagring av bibliotek til fil for å hente igjen etter programmet er stengt ned.
     """
     
-    with open('library.pkl', 'wb') as f:
-        pickle.dump(library, f)
+    with open('library_complete.pkl', 'wb') as f:
+        pickle.dump([library, userDatabase], f)
 
-def load_library(library):            
+def load_databases(library, userDatabase):            
     """
     Hent bibliotek og last lever tilbake lastet bibliotek.
     """
     try: 
-        with open('library.pkl', 'rb') as f:
-            loaded_library = pickle.load(f)
+        with open('library_complete.pkl', 'rb') as f:
+            loaded_library, userDatabase  = pickle.load(f)
             #loaded_library.find_books()
             #loaded_library.find_movies()
-        return loaded_library
-    except:
-        print("Bibliotek er ikke lagret til fil enda")
-        return library
+        return loaded_library, userDatabase
+    except ImportError as e:
+        print(f"Bibliotek er ikke lagret til fil enda {e}")
+        return library, userDatabase
 
 
 def main():
     library = Library()
-    library = load_library(library)
+    usersDatabase = UsersDatabase()
 
-    exit_requested = False
+    library,usersDatabase = load_databases(library, usersDatabase)
     
+    exit_requested = False
+
     while not exit_requested:
         try:
             print("\nMeny:")
@@ -392,6 +504,9 @@ def main():
             print("5. Lån gjenstand")
             print("6. Returner gjenstand")
             print("7. Finn gjenstand")
+            print("8. Legg til bruker")
+            print("9. List opp alle brukere")
+            print("10. Slett bruker")
             print("0. Avslutt")
 
             choice = input("Velg et alternativ: ").strip()
@@ -410,9 +525,15 @@ def main():
                     return_item(library)
                 case "7":
                     find_item(library)
+                case "8":
+                    add_user(usersDatabase)
+                case "9":
+                    usersDatabase.list_users()
+                case "10":
+                    delete_user(usersDatabase)
                 case "0":
                     print("Avslutter og lagrer bibliotek til fil…")
-                    save_library(library)
+                    save_databases(library,usersDatabase)
                     exit_requested = True
                 case _:
                     print("Ugyldig valg.")

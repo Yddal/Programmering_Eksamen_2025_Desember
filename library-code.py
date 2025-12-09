@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 #import uuid
 from datetime import datetime as dt
 from dateutil.relativedelta import relativedelta
@@ -14,9 +14,9 @@ class LibraryItem:
         self.publication_year = publication_year    # Publiseringsår
         self.language = language
         # Borrowed_by, byrrowed_date og due_date burde være en dictionary av alt. Implementert sånn nå for å spare tid. Listene kan være ute av sync, som vil være ett problem
-        self.borrowed_by = None #List[str]                 # Utlånt av - Liste av forskjellige lånetagere.
-        self.borrowed_date = None #List[str]               # Utlånsdato -
-        self.due_date = None # List[str]                    # Dato for innleveringsfrist. Settes en måned frem i tid.
+        self.borrowed_by = None                 # Utlånt av - Liste av forskjellige lånetagere.
+        self.borrowed_date = None               # Utlånsdato -
+        self.due_date = None                    # Dato for innleveringsfrist. Settes en måned frem i tid.
         self.location = location
         
     def is_borrowed(self):           # Returnerer false om boken ikke er lånt. Hvis den er lånt ut, returner dato for innlevering
@@ -25,14 +25,15 @@ class LibraryItem:
         else:
             return self.due_date
     
-    def borrow_item(self) -> None:
+    def borrow_item(self, userFullname) -> None:
         if self.due_date is None:
             todays_date = dt(year=dt.now().year, month=dt.now().month,day=dt.now().day)
             self.due_date = todays_date + relativedelta(months=1, days=1,seconds=-1) # Lever inn boken på slutten av dagen, en måned frem i tid
-            print(f"Du låner nå {self.title}")
+            self.borrowed_by = userFullname
+            print(f"{userFullname} låner nå {self.title}")
             print(f"Vennligste lever den tilbake innen: {self.due_date}")
         else:
-            print("Denne er allerede lånt ut") 
+            print(f"Denne er allerede lånt ut av {self.borrowed_by}") 
             #TODO Mulighet for å legge inn noe error handling i stedet for en string? Hvordan blir implementasjonen senere?
             return #Returnere noe annet enn None?
 
@@ -42,14 +43,16 @@ class LibraryItem:
             #TODO Mulighet for å legge inn noe error handling i stedet for en string? Hvordan blir implementasjonen senere?
         else:
             self.due_date = None
+            self.borrowed_by = None
             return
-        
+
 class Book(LibraryItem):
     def __init__(self, title: str, description: str, amount: int, genre: str, publication_year: int, language: str, borrowed_by: str, borrowed_date: dt, location: str, author: str, isbn: str, pages: int):
         super().__init__(title, description, amount, genre, publication_year, language, borrowed_by, borrowed_date, location)
         self.author = author        # Forfatter av boken
         self.isbn = isbn            # ISBN referanse
         self.pages = pages          # Antall sider i boken
+
 class Movie(LibraryItem):
     def __init__(self, title: str, description: str, amount: int, genre: str, publication_year: int, language: str, borrowed_by: str, borrowed_date: dt, location: str, director: str, id: str, length:str, IMDB_rating:float, subtitles:str):
         super().__init__(title, description, amount, genre, publication_year, language, borrowed_by, borrowed_date, location)
@@ -107,8 +110,8 @@ class Library:
             print_library_info(movies)
             return movies
     
-    def find_books_borrowed(self):
-        books = [b for b in self.items.values() if (isinstance(b,Book)) and (b.due_date is not None)] # Hent alle utlånte bøker i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
+    def find_books_borrowed(self, userFullname = ""):
+        books = [b for b in self.items.values() if (isinstance(b,Book)) and (b.due_date is not None) and (b.borrowed_by == userFullname)] # Hent alle utlånte bøker i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         print("\nVelg en av bøkene nedenfor:")
         print("\nLister opp alle bøker:\n----------------------")
         if len(books) == 0:
@@ -120,8 +123,8 @@ class Library:
             print_library_info(books)
             return books
 
-    def find_movies_borrowed(self):
-        movies = [m for m in self.items.values() if (isinstance(m,Movie)) and (m.due_date is not None)] # Hent alle utlånte filmer i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
+    def find_movies_borrowed(self, userFullname = ""):
+        movies = [m for m in self.items.values() if (isinstance(m,Movie)) and (m.due_date is not None) and (m.borrowed_by == userFullname)] # Hent alle utlånte filmer i biblioteket ved å sjekke verdien til hver oppføring og match den opp mot klassen.
         if len(movies) == 0:
             print("listen er tom")
             return False
@@ -132,7 +135,31 @@ class Library:
             return movies
     
     def library_Statistics(self):
-        print("Denne funksjonen er ikke definert enda")
+        books = [b for b in self.items.values() if (isinstance(b,Book))]    # Finn alle bøker
+        movies = [m for m in self.items.values() if (isinstance(m,Movie))]  # Finn alle filmer
+        
+        total = len(books) + len(movies)
+        books_borrowed = 0
+        movies_borrowed = 0
+        total_borrowed = 0
+        for book in books:
+            if book.is_borrowed() is not False:
+                books_borrowed += 1
+                total_borrowed += 1
+        for movie in movies:
+            if movie.is_borrowed() is not False:
+                movies_borrowed += 1
+                total_borrowed += 1
+        
+        rows = [['Kategori', 'Total antall', 'Antall utlånt', 'Prosent utlånt'],
+                ['Bøker:', len(books), books_borrowed, str(round(books_borrowed/len(books)*100,1)) + " %"],
+                ['Filmer:', len(movies), movies_borrowed, str(round(movies_borrowed/len(movies)*100,1)) + " %"],
+                ['Total:', total, total_borrowed, str(round(total_borrowed/total*100,1)) + " %"]]
+        t = Texttable()
+        #t.header(['Kategori', 'Total antall', 'Antall utlånt', 'Prosent utlånt %'])
+        t.add_rows(rows)
+        print(t.draw())
+
         pass
 
     def search_for(self,searchstr:str):
@@ -181,6 +208,16 @@ class UsersDatabase:
         print_users_info(self.users.values())
         return self.users.values()
     
+    def search_for(self,searchstr:str):
+        objects_found = [o for o in self.users.keys() if o.find(searchstr) > -1] # Søker i alle keys i biblioteket etter ønsket tekst. o.find() gir -1 hvis ingenting er funnet.
+        print("\nfølgende ble funnet:\n---------------------")
+        objects_list = []
+        for o in objects_found:
+            objects_list.append(self.users[o])
+            #print(f"{i}. {o}:>5 {self.items[o].due_date}")
+        print_users_info(objects_list)
+        return objects_list
+
 def print_users_info(user_list):
     if len(user_list) == 0:
         print("\nBrukerdatabasen er tom\n")
@@ -257,7 +294,7 @@ def delete_user(usersDatabase):
 def print_library_info(library_list):
 
     t = Texttable()
-    t.header(['Index', 'Tittel', 'Type', 'Beskrivelse', 'Lånestatus'])
+    t.header(['Index', 'Tittel', 'Type', 'Beskrivelse', 'Lånestatus', 'Utlånt av', 'innleveringsfrist'])
     index = 0
     for item in  library_list:
         index += 1
@@ -265,9 +302,12 @@ def print_library_info(library_list):
             borrowed_status = "Utlånt"
         else:
             borrowed_status = "Ikke utlånt"
-        t.add_row([index, item.title,define_library_key(item,"",False), item.description, borrowed_status])
+        if item.due_date is None:
+            due_date = ""
+        else:
+            due_date = item.due_date
+        t.add_row([index, item.title,define_library_key(item,"",False), item.description, borrowed_status, item.borrowed_by, due_date])
     print(t.draw())
-
 
 def define_library_key(item, suffix, Include_Title):
     """
@@ -326,7 +366,7 @@ def add_movie(library):
     
     library.add_item(Movie(title, description, amount, genre, publication_year, language, borrowed_by, borrowed_date, location, director, id, length, IMDB_rating, subtitles))
 
-def borrow_item(library):
+def borrow_item(library, userFullname):
     """
     Oppsummering:
     Funksjon for å låne en gjenstand fra biblioteket.
@@ -364,7 +404,7 @@ def borrow_item(library):
                     case _:
                         print("ikke ett gyldig valg, velg mellom 0, 1 eller 2")
             choice = int(input("Velg nummeret du vil låne eller 0 for å avbryte: ").strip())-1 # trekk ifra 1 fra valgt index da listen starter på 0 og index starter på 1.
-            if borrow_list is not False:
+            if borrow_list is not False: # Dobbelsjekk at listen ikke er tom. 
                 while choice not in range(-1,len(borrow_list)): # Valget må være mellom -1 og lengden til borrow_list. -1 er avbryt
                     choice = int(input("Velg nummeret du vil låne eller 0 for å avbryte: ").strip())-1 # trekk ifra 1 fra valgt index da listen starter på 0 og index starter på 1.
                 # Bryt ut av loopen når valget er gyldig.
@@ -374,7 +414,7 @@ def borrow_item(library):
                     try:
                         #choice = int(input("Velg nummeret du vil låne: ").strip())-1
                         borrowed_item = borrow_list[choice]
-                        borrowed_item.borrow_item()
+                        borrowed_item.borrow_item(userFullname)
                     except IndexError as e:
                         print(f"[IndexFeil] {e}")
             else:
@@ -384,7 +424,7 @@ def borrow_item(library):
             print(f"[Inputfeil] {e}")
     #TODO: Implementer søkefunksjon etter hva du skal låne. F.eks som alternativ 3. Søk etter bok, 4. Søk etter film
 
-def return_item(library):
+def return_item(library, userFullname):
     """
     Oppsummering:
     Funksjon for å levere tilbake en gjenstand i biblioteket.
@@ -406,12 +446,12 @@ def return_item(library):
                 choice = int(input("Velg et alternativ: ").strip())
                 match choice:
                     case 1:
-                        borrowed_list = library.find_books_borrowed() # Printer listen over bøker og returnerer listen. Verdi er false hvis listen er tom.
+                        borrowed_list = library.find_books_borrowed(userFullname) # Printer listen over bøker og returnerer listen. Verdi er false hvis listen er tom.
                         if borrowed_list is False:
                             return
                         choice = int(input("Velg nummeret du vil levere tilbake eller 0 for å avbryte: ").strip())-1
                     case 2:
-                        borrowed_list = library.find_movies_borrowed() # Printer listen over filmer og returnerer listen. Verdi er false hvis listen er tom.
+                        borrowed_list = library.find_movies_borrowed(userFullname) # Printer listen over filmer og returnerer listen. Verdi er false hvis listen er tom.
                         if borrowed_list is False:
                             #print("Det er ingen tilgjengelige filmer")
                             return
@@ -423,7 +463,7 @@ def return_item(library):
                     case _:
                         print("ikke ett gyldig valg, velg mellom 0, 1 eller 2")
             if borrowed_list is not False:
-                while choice not in range(-1,len(borrow_list)): # Valget må være mellom -1 og lengden til borrow_list. -1 er avbryt
+                while choice not in range(-1,len(borrowed_list)): # Valget må være mellom -1 og lengden til borrow_list. -1 er avbryt
                     choice = int(input("Velg nummeret du vil levere tilbake eller 0 for å avbryte: ").strip())-1
                 # Bryt ut av loopen når valget er gyldig.
                 if choice < 0:
@@ -443,6 +483,35 @@ def return_item(library):
             print(f"[Inputfeil] {e}")
     #TODO: Implementer søkefunksjon etter hva du skal låne. F.eks som alternativ 3. Søk etter bok, 4. Søk etter film
 
+def who_borrows(userDatabase):
+    # Hent input fra brukeren, skal du returnere eller låne bok endrer søket ut ifra om du har noe utlånt eller ikke.
+    print("\n")
+    
+    exit_requested = False
+    global users_found
+    global chosen_user
+    chosen_user = -99 # Startverdi utenfor forventet verdi.
+    while not exit_requested:
+        search_for = input("\nHva heter brukeren? ")
+        match search_for:
+            case "":
+                print("Går tilbake til hovedmeny")
+                exit_requested=True
+            case _:
+                users_found = userDatabase.search_for(search_for)
+                if len(users_found) == 0:
+                    print("ingen brukere funnet, prøv igjen")
+                    continue
+        while chosen_user not in range(0,len(users_found)):
+            chosen_user = input("Velg ett index nr eller trykk enter for å søke på nytt: ").strip()
+            if chosen_user == "":
+                continue
+            try:
+                chosen_user = int(chosen_user)-1 # Trekk ifra 1 for siden listen begynner på 0.
+            except ValueError as e:
+                print(f"[Inputfeil] {e}")
+            return users_found[chosen_user].fullname # Hvis alt har gått bra, returner brukers fulle navn.
+    return
 
 def find_item(library):
     # Hent input fra brukeren, og søk etter tittel igjennom alle tilgjengelige gjenstander.
@@ -460,7 +529,6 @@ def find_item(library):
                 exit_requested=True
             case _:
                 library.search_for(search_for)
-
 
 def save_databases(library, userDatabase):    
     """
@@ -485,6 +553,37 @@ def load_databases(library, userDatabase):
         print(f"Bibliotek er ikke lagret til fil enda {e}")
         return library, userDatabase
 
+def get_choice(menuList, header = False):
+    """
+    Enkel funksjon for å hente input for menyer til listen.
+    Utvidet helt på slutten, skulle hatt denne fra starten og implementert den over alt.
+
+    """
+    if header is True:
+        index = -1  # Trekk ifra hovedmeny linjen fra lengden til listen for menyvalg.
+    else:
+        index = 0
+
+    print("")
+    for option in menuList:
+        print(option)
+    
+    choice = input("Velg et alternativ: ").strip()
+    while not str(choice).isnumeric() or choice not in range(0,len(menuList) + index):
+        if not str(choice).isnumeric():
+            print("Valget er ikke ett tall..")
+            choice = input("Velg ett tall fra listen: ").strip()
+            continue # Skip resten av koden, gå tibake til start av while loopen
+        else:
+            choice = int(choice)
+        if choice not in range(0,len(menuList) + index):
+            choice = input("Ugyldig valg, prøv igjen: ").strip()
+            continue
+
+    choice = int(choice)
+    
+    return choice
+
 
 def main():
     library = Library()
@@ -496,42 +595,49 @@ def main():
 
     while not exit_requested:
         try:
-            print("\nMeny:")
-            print("1. Legg til bok")
-            print("2. Legg til film")
-            print("3. List tilgjengelige bøker")
-            print("4. List tilgjengelige filmer")
-            print("5. Lån gjenstand")
-            print("6. Returner gjenstand")
-            print("7. Finn gjenstand")
-            print("8. Legg til bruker")
-            print("9. List opp alle brukere")
-            print("10. Slett bruker")
-            print("0. Avslutt")
 
-            choice = input("Velg et alternativ: ").strip()
+            menuList = ["Meny:",
+                        "1. Legg til bok",
+                        "2. Legg til film",
+                        "3. List tilgjengelige bøker",
+                        "4. List tilgjengelige filmer",
+                        "5. Lån gjenstand",
+                        "6. Returner gjenstand",
+                        "7. Finn gjenstand",
+                        "8. Legg til bruker",
+                        "9. List opp alle brukere",
+                        "10. Slett bruker",
+                        "11. Biblioteksstatistikk",
+                        "0. Avslutt"]
+
+            choice = get_choice(menuList, True)
+
             match choice:
-                case "1":
+                case 1:
                     add_book(library)
-                case "2":
+                case 2:
                     add_movie(library)
-                case "3":
+                case 3:
                     library.find_books(False)
-                case "4":
+                case 4:
                     library.find_movies(False)
-                case "5":
-                    borrow_item(library)
-                case "6":
-                    return_item(library)
-                case "7":
+                case 5:
+                    userFullname = who_borrows(usersDatabase)
+                    borrow_item(library,userFullname)
+                case 6:
+                    userFullname = who_borrows(usersDatabase)
+                    return_item(library,userFullname)
+                case 7:
                     find_item(library)
-                case "8":
+                case 8:
                     add_user(usersDatabase)
-                case "9":
+                case 9:
                     usersDatabase.list_users()
-                case "10":
+                case 10:
                     delete_user(usersDatabase)
-                case "0":
+                case 11:
+                    library.library_Statistics()
+                case 0:
                     print("Avslutter og lagrer bibliotek til fil…")
                     save_databases(library,usersDatabase)
                     exit_requested = True

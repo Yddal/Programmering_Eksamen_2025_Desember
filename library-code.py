@@ -4,6 +4,8 @@ from datetime import datetime as dt
 from dateutil.relativedelta import relativedelta
 from texttable import Texttable
 import pickle
+import os
+
 class LibraryItem:
     def __init__(self, title: str, description: str, amount: int, genre: str, publication_year: int, language: str, borrowed_by: str, borrowed_date: dt, location: str):
         #self.GUID = None                            # Unik identifikator i biblioteket for å holde styr på duplikater, None ved initialisering
@@ -543,15 +545,24 @@ def load_databases(library, userDatabase):
     """
     Hent bibliotek og last lever tilbake lastet bibliotek.
     """
-    try: 
+    if os.path.exists('library_complete.pkl'):
+        try: 
+            with open('library_complete.pkl', 'rb') as f:
+                loaded_library, userDatabase  = pickle.load(f)
+                #loaded_library.find_books()
+                #loaded_library.find_movies()
+            return loaded_library, userDatabase
+        except ImportError as e:
+            print(f"Bibliotek er ikke lagret til fil enda {e}")
+            return library, userDatabase
+    else:
+        save_databases(library, userDatabase)
         with open('library_complete.pkl', 'rb') as f:
-            loaded_library, userDatabase  = pickle.load(f)
-            #loaded_library.find_books()
-            #loaded_library.find_movies()
+                loaded_library, userDatabase  = pickle.load(f)
+                #loaded_library.find_books()
+                #loaded_library.find_movies()
         return loaded_library, userDatabase
-    except ImportError as e:
-        print(f"Bibliotek er ikke lagret til fil enda {e}")
-        return library, userDatabase
+
 
 def get_choice(menuList, header = False):
     """
